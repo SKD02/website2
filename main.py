@@ -4,11 +4,11 @@ from typing import Optional, List, Dict, Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from openai import OpenAI
+import openai
 
 import pymysql
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
@@ -329,3 +329,4 @@ def feedback(fb: FeedbackIn, request: Request):
 @app.get("/")
 def root():
     return {"status": "Проверка работоспособности"}
+
