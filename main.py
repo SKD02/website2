@@ -325,3 +325,7 @@ def feedback(fb: FeedbackIn, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка сохранения отзыва: {e}")
     return {"status": "ok"}
+
+@app.get("/")
+def root():
+    return {"status": "Проверка работоспособности"}
