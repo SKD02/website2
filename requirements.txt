@@ -1,5 +1,6 @@
 fastapi
-uvicorn[standard]
-openai>=1.40.0
+uvicorn
+openai
 requests
 pymysql
+
