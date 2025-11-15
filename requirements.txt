@@ -1,7 +1,1 @@
-fastapi
-uvicorn
 openai
-requests
-pymysql
-OpenAI
-typing
