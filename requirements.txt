@@ -2,5 +2,6 @@ fastapi
 uvicorn
 openai
 requests
-pymysql
+psycopg2-binary
+
 
