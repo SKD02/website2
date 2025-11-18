@@ -6,15 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import openai
 
-import pymysql
+import psycopg2
 
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = int(os.getenv("DB_PORT", "3306"))
-DB_NAME = os.getenv("DB_NAME")       
-DB_USER = os.getenv("DB_USER")       
-DB_PASS = os.getenv("DB_PASS")        
+DB_HOST = os.getenv("DB_HOST", "")
+DB_PORT = int(os.getenv("DB_PORT", ""))
+DB_NAME = os.getenv("DB_NAME", "")
+DB_USER = os.getenv("DB_USER", "")
+DB_PASS = os.getenv("DB_PASS", "")     
 
 
 
@@ -48,6 +48,7 @@ class DetectOut(BaseModel):
     raw: Optional[str] = None
     description: Optional[str] = None
     tech31: Optional[str] = None
+    decl31: Optional[str] = None
     classification_reason: Optional[str] = None
     alternatives: Optional[List[AltItem]] = None
     payments: Optional[Payments] = None
@@ -144,19 +145,15 @@ def _normalize_payments(val, fallback_duty: str, fallback_vat: str):
     return d
 
 def get_db_connection():
-    """Создаёт соединение с MySQL или возвращает None, если нет настроек."""
     if not (DB_HOST and DB_NAME and DB_USER):
         print("[feedback] DB settings not configured, skip save")
         return None
-    return pymysql.connect(
+    return psycopg2.connect(
         host=DB_HOST,
         port=DB_PORT,
         user=DB_USER,
         password=DB_PASS,
-        database=DB_NAME,
-        charset="utf8mb4",
-        autocommit=True,
-        cursorclass=pymysql.cursors.Cursor,
+        dbname=DB_NAME,
     )
 
 def save_feedback_to_db(fb: FeedbackIn, request: Request) -> None:
@@ -302,6 +299,7 @@ def detect(inp: DetectIn, request: Request):
     alternatives = _normalize_alternatives(data.get("alternatives"))
     payments = _normalize_payments(data.get("payments"), fallback_duty=duty, fallback_vat=vat)
     requirements = _normalize_requirements(data.get("requirements"))
+    decl31 = (data.get("decl31") or "").strip()
 
     out = DetectOut(
         code=code,
@@ -310,6 +308,7 @@ def detect(inp: DetectIn, request: Request):
         raw=text,
         description=(data.get("description") or ""),
         tech31=tech31,
+        decl31=decl31,
         classification_reason=(data.get("classification_reason") or ""),
         alternatives=alternatives,
         payments=payments,
@@ -329,4 +328,3 @@ def feedback(fb: FeedbackIn, request: Request):
 @app.get("/")
 def root():
     return {"status": "Проверка работоспособности"}
-
