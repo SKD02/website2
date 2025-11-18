@@ -200,7 +200,6 @@ def save_feedback_to_db(fb: FeedbackIn, request: Request) -> None:
             )
     finally:
         conn.close()
-# ===============================
 
 def _normalize_requirements(val):
     if isinstance(val, (list, tuple)):
