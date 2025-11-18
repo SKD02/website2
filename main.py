@@ -332,26 +332,6 @@ def feedback(fb: FeedbackIn, request: Request):
 def root():
     return {"status": "Проверка работоспособности"}
 
-@app.get("/debug/db")
-def debug_db():
-    try:
-        conn = get_db_connection()
-        if conn is None:
-            return {
-                "status": "no_config",
-                "detail": "DB settings not configured (DB_HOST/DB_NAME/DB_USER)"
-            }
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
-            row = cur.fetchone()
-        conn.close()
-        return {"status": "ok", "result": row[0]}
-    except Exception as e:
-        # вернём текст ошибки наружу
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"DB error: {e}"
-        )
     
 @app.get("/debug/db")
 def debug_db():
