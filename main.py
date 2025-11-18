@@ -8,6 +8,10 @@ import openai
 
 import psycopg2
 
+from fastapi import status
+import psycopg2
+import psycopg2.extras
+
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 DB_HOST = os.getenv("DB_HOST", "")
@@ -327,3 +331,77 @@ def feedback(fb: FeedbackIn, request: Request):
 @app.get("/")
 def root():
     return {"status": "Проверка работоспособности"}
+
+@app.get("/debug/db")
+def debug_db():
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return {
+                "status": "no_config",
+                "detail": "DB settings not configured (DB_HOST/DB_NAME/DB_USER)"
+            }
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+            row = cur.fetchone()
+        conn.close()
+        return {"status": "ok", "result": row[0]}
+    except Exception as e:
+        # вернём текст ошибки наружу
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"DB error: {e}"
+        )
+    
+@app.get("/debug/db")
+def debug_db():
+    result = {
+        "env": {
+            "DB_HOST": DB_HOST,
+            "DB_PORT": DB_PORT,
+            "DB_NAME": DB_NAME,
+            "DB_USER": DB_USER,
+            "DB_PASS_SET": bool(DB_PASS),
+        },
+        "connection": None,
+        "tables": None,
+        "feedback_columns": None,
+        "error": None,
+    }
+
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            result["connection"] = "NO_CONFIG"
+            return result
+
+        result["connection"] = "CONNECTED"
+
+        # ----- Список таблиц -----
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema='public'
+                ORDER BY table_name;
+            """)
+            result["tables"] = [r[0] for r in cur.fetchall()]
+
+        # ----- Структура таблицы feedback -----
+        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+            cur.execute("""
+                SELECT column_name, data_type, is_nullable
+                FROM information_schema.columns
+                WHERE table_schema='public' AND table_name='feedback'
+                ORDER BY ordinal_position;
+            """)
+            result["feedback_columns"] = [
+                dict(row) for row in cur.fetchall()
+            ]
+
+        conn.close()
+        return result
+
+    except Exception as e:
+        result["error"] = str(e)
+        return result
