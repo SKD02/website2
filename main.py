@@ -332,56 +332,14 @@ def feedback(fb: FeedbackIn, request: Request):
 def root():
     return {"status": "Проверка работоспособности"}
 
-    
-@app.get("/debug/db")
-def debug_db():
-    result = {
-        "env": {
-            "DB_HOST": DB_HOST,
-            "DB_PORT": DB_PORT,
-            "DB_NAME": DB_NAME,
-            "DB_USER": DB_USER,
-            "DB_PASS_SET": bool(DB_PASS),
-        },
-        "connection": None,
-        "tables": None,
-        "feedback_columns": None,
-        "error": None,
-    }
-
+@app.get("/debug/gpt")
+def debug_gpt():
     try:
-        conn = get_db_connection()
-        if conn is None:
-            result["connection"] = "NO_CONFIG"
-            return result
-
-        result["connection"] = "CONNECTED"
-
-        # ----- Список таблиц -----
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT table_name
-                FROM information_schema.tables
-                WHERE table_schema='public'
-                ORDER BY table_name;
-            """)
-            result["tables"] = [r[0] for r in cur.fetchall()]
-
-        # ----- Структура таблицы feedback -----
-        with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-            cur.execute("""
-                SELECT column_name, data_type, is_nullable
-                FROM information_schema.columns
-                WHERE table_schema='public' AND table_name='feedback'
-                ORDER BY ordinal_position;
-            """)
-            result["feedback_columns"] = [
-                dict(row) for row in cur.fetchall()
-            ]
-
-        conn.close()
-        return result
-
+        r = client.responses.create(
+            model="gpt-5",
+            input=[{"role": "user", "content": "ping"}]
+        )
+        return {"status": "ok", "output": r.output_text[:200]}
     except Exception as e:
-        result["error"] = str(e)
-        return result
+        return {"status": "error", "error": str(e)}
+
