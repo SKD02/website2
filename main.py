@@ -322,11 +322,24 @@ def detect(inp: DetectIn, request: Request):
 
 @app.post("/feedback")
 def feedback(fb: FeedbackIn, request: Request):
+    saved = False
+    error = None
+
     try:
         save_feedback_to_db(fb, request)
+        saved = True
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка сохранения отзыва: {e}")
-    return {"status": "ok"}
+        # Логируем в консоль, но клиенту не даём 500
+        error = str(e)
+        print(f"[feedback] DB error: {e}")
+
+    # Всегда 200 OK
+    return {
+        "status": "ok",
+        "saved": saved,  
+        "error": error  
+    }
+
 
 @app.get("/")
 def root():
@@ -342,4 +355,5 @@ def debug_gpt():
         return {"status": "ok", "output": r.output_text[:200]}
     except Exception as e:
         return {"status": "error", "error": str(e)}
+
 
