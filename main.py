@@ -152,13 +152,20 @@ def get_db_connection():
     if not (DB_HOST and DB_NAME and DB_USER):
         print("[feedback] DB settings not configured, skip save")
         return None
-    return psycopg2.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASS,
-        dbname=DB_NAME,
-    )
+
+    try:
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            user=DB_USER,
+            password=DB_PASS,
+            dbname=DB_NAME,
+            connect_timeout=5,
+        )
+        return conn
+    except Exception as e:
+        print(f"[feedback] DB connect error: {e}")
+        raise
 
 def save_feedback_to_db(fb: FeedbackIn, request: Request) -> None:
     conn = get_db_connection()
@@ -166,44 +173,46 @@ def save_feedback_to_db(fb: FeedbackIn, request: Request) -> None:
         return
 
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO feedback (
-                    acc_code_rating,
-                    tech31_rating,
-                    reason_rating,
-                    ui_rating,
-                    req_manufacturer,
-                    req_product,
-                    req_extra,
-                    res_code,
-                    res_tech31,
-                    res_decl31,
-                    comment,
-                    user_agent,
-                    client_ip
+        with conn:  # контекст сам делает COMMIT при успехе
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO feedback (
+                        acc_code_rating,
+                        tech31_rating,
+                        reason_rating,
+                        ui_rating,
+                        req_manufacturer,
+                        req_product,
+                        req_extra,
+                        res_code,
+                        res_tech31,
+                        res_decl31,
+                        comment,
+                        user_agent,
+                        client_ip
+                    )
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        fb.acc_code,
+                        fb.desc_31,
+                        fb.reason_clarity,
+                        fb.ui,
+                        fb.manufacturer or "",
+                        fb.product or "",
+                        fb.extra or "",
+                        fb.code or "",
+                        fb.tech31 or "",
+                        fb.decl31 or "",
+                        fb.comment or "",
+                        request.headers.get("user-agent", ""),
+                        request.client.host if request.client else None,
+                    ),
                 )
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                """,
-                (
-                    fb.acc_code,
-                    fb.desc_31,
-                    fb.reason_clarity,
-                    fb.ui,
-                    fb.manufacturer or "",
-                    fb.product or "",
-                    fb.extra or "",
-                    fb.code or "",
-                    fb.tech31 or "",
-                    fb.decl31 or "",
-                    fb.comment or "",
-                    request.headers.get("user-agent", ""),
-                    request.client.host if request.client else None,
-                ),
-            )
     finally:
         conn.close()
+
 
 def _normalize_requirements(val):
     if isinstance(val, (list, tuple)):
@@ -356,4 +365,59 @@ def debug_gpt():
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
+@app.get("/debug/db")
+def debug_db():
+    try:
+        conn = get_db_connection()
+    except Exception as e:
+        # Ошибка уже на этапе соединения
+        return {
+            "ok": False,
+            "stage": "connect",
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        }
+
+    if conn is None:
+        return {
+            "ok": False,
+            "stage": "config",
+            "error": "DB settings not configured (DB_HOST/DB_NAME/DB_USER empty)",
+        }
+
+    try:
+        with conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                # 1) Структура таблицы feedback
+                cur.execute("""
+                    SELECT
+                        column_name,
+                        data_type,
+                        is_nullable
+                    FROM information_schema.columns
+                    WHERE table_name = 'feedback'
+                    ORDER BY ordinal_position
+                """)
+                columns = [dict(row) for row in cur.fetchall()]
+
+                # 2) Пара примеров строк
+                cur.execute("SELECT * FROM feedback ORDER BY 1 DESC LIMIT 5")
+                rows = [dict(row) for row in cur.fetchall()]
+
+        return {
+            "ok": True,
+            "stage": "query",
+            "columns": columns,
+            "sample_rows": rows,
+        }
+
+    except Exception as e:
+        return {
+            "ok": False,
+            "stage": "query",
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        }
+    finally:
+        conn.close()
 
