@@ -173,7 +173,7 @@ def save_feedback_to_db(fb: FeedbackIn, request: Request) -> None:
         return
 
     try:
-        with conn:  # контекст сам делает COMMIT при успехе
+        with conn: 
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -258,7 +258,10 @@ def detect(inp: DetectIn, request: Request):
         "vat": "% или \"UNKNOWN\"",
         "excise": "— или значение",
         "fees": "— или значение"
-      }
+      },
+      "requirements": [
+        "ТР ЕАЭС, безопасность, лицензирование, сертификация — если применимо"
+      ]
     }
     
     Требования:
@@ -304,7 +307,7 @@ def detect(inp: DetectIn, request: Request):
     tech31 = _stringify_tech31(data.get("tech31"))
     alternatives = _normalize_alternatives(data.get("alternatives"))
     payments = _normalize_payments(data.get("payments"), fallback_duty=duty, fallback_vat=vat)
-    #requirements = _normalize_requirements(data.get("requirements"))
+    requirements = _normalize_requirements(data.get("requirements"))
     decl31 = (data.get("decl31") or "").strip()
 
     out = DetectOut(
@@ -318,7 +321,7 @@ def detect(inp: DetectIn, request: Request):
         classification_reason=(data.get("classification_reason") or ""),
         alternatives=alternatives,
         payments=payments,
-        #requirements=requirements,
+        requirements=requirements,
     )
     return out
 
@@ -332,11 +335,9 @@ def feedback(fb: FeedbackIn, request: Request):
         save_feedback_to_db(fb, request)
         saved = True
     except Exception as e:
-        # Логируем в консоль, но клиенту не даём 500
         error = str(e)
         print(f"[feedback] DB error: {e}")
 
-    # Всегда 200 OK
     return {
         "status": "ok",
         "saved": saved,  
@@ -396,6 +397,7 @@ def debug_db():
         }
     finally:
         conn.close()
+
 
 
 
