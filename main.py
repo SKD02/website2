@@ -364,12 +364,10 @@ def debug_db():
     try:
         conn = get_db_connection()
     except Exception as e:
-        # Ошибка уже на этапе соединения
         return {
             "ok": False,
             "stage": "connect",
             "error": str(e),
-            "traceback": traceback.format_exc(),
         }
 
     if conn is None:
@@ -378,31 +376,16 @@ def debug_db():
             "stage": "config",
             "error": "DB settings not configured (DB_HOST/DB_NAME/DB_USER empty)",
         }
-
     try:
         with conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                # 1) Структура таблицы feedback
-                cur.execute("""
-                    SELECT
-                        column_name,
-                        data_type,
-                        is_nullable
-                    FROM information_schema.columns
-                    WHERE table_name = 'feedback'
-                    ORDER BY ordinal_position
-                """)
-                columns = [dict(row) for row in cur.fetchall()]
-
-                # 2) Пара примеров строк
-                cur.execute("SELECT * FROM feedback ORDER BY 1 DESC LIMIT 5")
-                rows = [dict(row) for row in cur.fetchall()]
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                val = cur.fetchone()[0]
 
         return {
             "ok": True,
             "stage": "query",
-            "columns": columns,
-            "sample_rows": rows,
+            "result": val,
         }
 
     except Exception as e:
@@ -410,9 +393,9 @@ def debug_db():
             "ok": False,
             "stage": "query",
             "error": str(e),
-            "traceback": traceback.format_exc(),
         }
     finally:
         conn.close()
+
 
 
