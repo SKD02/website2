@@ -258,13 +258,7 @@ def detect(inp: DetectIn, request: Request):
         "vat": "% или \"UNKNOWN\"",
         "excise": "— или значение",
         "fees": "— или значение"
-      },
-      "requirements": [
-        "ТР ЕАЭС, безопасность, лицензирование, сертификация — если применимо"
-      ],
-      "sources": [
-        "краткие ссылки/названия найденных источников, если делался веб-поиск"
-      ]
+      }
     }
     
     Требования:
@@ -310,7 +304,7 @@ def detect(inp: DetectIn, request: Request):
     tech31 = _stringify_tech31(data.get("tech31"))
     alternatives = _normalize_alternatives(data.get("alternatives"))
     payments = _normalize_payments(data.get("payments"), fallback_duty=duty, fallback_vat=vat)
-    requirements = _normalize_requirements(data.get("requirements"))
+    #requirements = _normalize_requirements(data.get("requirements"))
     decl31 = (data.get("decl31") or "").strip()
 
     out = DetectOut(
@@ -324,7 +318,7 @@ def detect(inp: DetectIn, request: Request):
         classification_reason=(data.get("classification_reason") or ""),
         alternatives=alternatives,
         payments=payments,
-        requirements=requirements,
+        #requirements=requirements,
     )
     return out
 
@@ -420,4 +414,5 @@ def debug_db():
         }
     finally:
         conn.close()
+
 
